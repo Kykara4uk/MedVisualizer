@@ -1,0 +1,123 @@
+package com.kykara4a.medvisualizer.ui.gl
+
+import android.opengl.GLES32
+import androidx.compose.ui.graphics.Color
+import com.kykara4a.medvisualizer.domain.model.Point
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.FloatBuffer
+
+class GLPoint(
+    val color: Color,
+    val coordsNormalizer: (Point) -> Point,
+    vararg points: Point,
+) {
+    private var mProgram: Int
+    private val vertexCount: Int = points.size
+    private val vertexStride: Int = COORDS_PER_VERTEX * 4 // 4 bytes per vertex
+
+    private val vertexShaderCode =
+        "attribute vec4 vPosition;" +
+                "void main() {" +
+                "  gl_Position = vPosition;" +
+                "}"
+
+    private val fragmentShaderCode =
+        "precision mediump float;" +
+                "uniform vec4 vColor;" +
+                "void main() {" +
+                "  gl_FragColor = vec4(255, 255, 255, 255);" +
+                "}"
+
+    private var vertexBuffer: FloatBuffer =
+        // (number of coordinate values * 4 bytes per float)
+        ByteBuffer.allocateDirect(points.size * 3 * 4).run {
+            // use the device hardware's native byte order
+            order(ByteOrder.nativeOrder())
+
+            // create a floating point buffer from the ByteBuffer
+            asFloatBuffer()
+        }
+
+    // Set color with red, green, blue and alpha (opacity) values
+    val colorFloat = floatArrayOf(color.red, color.green, color.blue, 1.0f)
+
+    init {
+        setVertices(points)
+        val vertexShader: Int = loadShader(GLES32.GL_VERTEX_SHADER, vertexShaderCode)
+        val fragmentShader: Int = loadShader(GLES32.GL_FRAGMENT_SHADER, fragmentShaderCode)
+
+        // create empty OpenGL ES Program
+        mProgram = GLES32.glCreateProgram().also {
+
+            // add the vertex shader to program
+            GLES32.glAttachShader(it, vertexShader)
+
+            // add the fragment shader to program
+            GLES32.glAttachShader(it, fragmentShader)
+
+            // creates OpenGL ES program executables
+            GLES32.glLinkProgram(it)
+        }
+
+    }
+
+    fun loadShader(type: Int, shaderCode: String): Int {
+
+        // create a vertex shader type (GLES32.GL_VERTEX_SHADER)
+        // or a fragment shader type (GLES32.GL_FRAGMENT_SHADER)
+        return GLES32.glCreateShader(type).also { shader ->
+
+            // add the source code to the shader and compile it
+            GLES32.glShaderSource(shader, shaderCode)
+            GLES32.glCompileShader(shader)
+        }
+    }
+
+    fun draw() {
+        // Add program to OpenGL ES environment
+        GLES32.glUseProgram(mProgram)
+
+        // get handle to vertex shader's vPosition member
+        GLES32.glGetAttribLocation(mProgram, "vPosition").also {
+
+            // Enable a handle to the triangle vertices
+            GLES32.glEnableVertexAttribArray(it)
+
+            // Prepare the triangle coordinate data
+            GLES32.glVertexAttribPointer(
+                it,
+                COORDS_PER_VERTEX,
+                GLES32.GL_FLOAT,
+                false,
+                vertexStride,
+                vertexBuffer
+            )
+
+            // get handle to fragment shader's vColor member
+            GLES32.glGetUniformLocation(mProgram, "vColor").also { colorHandle ->
+
+                // Set color for drawing the triangle
+                GLES32.glUniform4fv(colorHandle, 1, colorFloat, 0)
+            }
+
+            // Draw the triangle
+            GLES32.glDrawArrays(GLES32.GL_POINTS, 0, vertexCount)
+
+            // Disable vertex array
+            GLES32.glDisableVertexAttribArray(it)
+        }
+    }
+
+    private fun setVertices(points: Array<out Point>) {
+        val normalizedCoords = points.map(coordsNormalizer)
+        val verticesArray = normalizedCoords.flatMap { listOf( it.x, it.y, it.z) }.toFloatArray()
+
+        with(vertexBuffer) {
+            // add the coordinates to the FloatBuffer
+            put(verticesArray)
+            // set the buffer to read the first coordinate
+            position(0)
+        }
+    }
+}

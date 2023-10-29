@@ -2,22 +2,20 @@ package com.kykara4a.medvisualizer.ui.gl
 
 import android.opengl.GLES32
 import androidx.compose.ui.graphics.Color
+import com.kykara4a.medvisualizer.domain.model.Point
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
-const val COORDS_PER_VERTEX = 3
 
-private val vertices = floatArrayOf(
-    // X, Y, Z,
-    0.0f, 0.5f, 0.0f, //TOP
-    0.5f, -0.5f, 0.0f, //LEFT
-    -0.5f, -0.5f, 0.0f, //RIGHT
-)
-
-class Triangle(val color: Color) {
+class GLLine(
+    val color: Color,
+    point1: Point,
+    point2: Point,
+    val coordsNormalizer: (Point) -> Point,
+) {
     private var mProgram: Int
-    private val vertexCount: Int = vertices.size / COORDS_PER_VERTEX
+    private val vertexCount: Int = 6 / COORDS_PER_VERTEX
     private val vertexStride: Int = COORDS_PER_VERTEX * 4 // 4 bytes per vertex
 
     private val vertexShaderCode =
@@ -35,24 +33,19 @@ class Triangle(val color: Color) {
 
     private var vertexBuffer: FloatBuffer =
         // (number of coordinate values * 4 bytes per float)
-        ByteBuffer.allocateDirect(vertices.size * 4).run {
+        ByteBuffer.allocateDirect(6 * 4).run {
             // use the device hardware's native byte order
             order(ByteOrder.nativeOrder())
 
             // create a floating point buffer from the ByteBuffer
-            asFloatBuffer().apply {
-                // add the coordinates to the FloatBuffer
-                put(vertices)
-                // set the buffer to read the first coordinate
-                position(0)
-            }
+            asFloatBuffer()
         }
 
     // Set color with red, green, blue and alpha (opacity) values
     val colorFloat = floatArrayOf(color.red, color.green, color.blue, 1.0f)
 
     init {
-
+        setVertices(point1, point2)
         val vertexShader: Int = loadShader(GLES32.GL_VERTEX_SHADER, vertexShaderCode)
         val fragmentShader: Int = loadShader(GLES32.GL_FRAGMENT_SHADER, fragmentShaderCode)
 
@@ -111,10 +104,25 @@ class Triangle(val color: Color) {
             }
 
             // Draw the triangle
-            GLES32.glDrawArrays(GLES32.GL_TRIANGLES, 0, vertexCount)
+            GLES32.glDrawArrays(GLES32.GL_LINES, 0, vertexCount)
 
             // Disable vertex array
             GLES32.glDisableVertexAttribArray(it)
+        }
+    }
+
+    private fun setVertices(point1: Point, point2: Point) {
+        val normalizedCoords = listOf(point1, point2).map(coordsNormalizer)
+        val verticesArray = floatArrayOf(
+            // X, Y, Z,
+            normalizedCoords[0].x, normalizedCoords[0].y, normalizedCoords[0].z,
+            normalizedCoords[1].x, normalizedCoords[1].y, normalizedCoords[1].z,
+        )
+        with(vertexBuffer) {
+            // add the coordinates to the FloatBuffer
+            put(verticesArray)
+            // set the buffer to read the first coordinate
+            position(0)
         }
     }
 }

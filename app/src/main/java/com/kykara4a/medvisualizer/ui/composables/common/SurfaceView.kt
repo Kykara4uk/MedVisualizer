@@ -6,11 +6,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.kykara4a.medvisualizer.ui.gl.MedSurfaceView
 
 @Composable
-fun SurfaceView(color: Color) {
+fun SurfaceView(color: Color, centerX: Float, centerY: Float, radius: Float) {
     AndroidView(
         factory = { context ->
             MedSurfaceView(context).apply {
-                init(color)
+                init(color, centerX, centerY, radius)
             }
         },
     )

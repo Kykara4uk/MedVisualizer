@@ -29,7 +29,6 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     MainScreen(
-                        dicomBitmap = getTestDicomObject().getBitmap(MaterialTheme.colorScheme.tertiary)
                     )
                 }
             }
